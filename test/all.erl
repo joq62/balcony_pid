@@ -15,6 +15,9 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+
+-include("include/balcony_pid.hrl").
+
 -define(ControlC201,control_a@c201).
 
 -define(MainLogDir,"logs").
@@ -46,9 +49,21 @@ start()->
 test_1()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
   
-    AllMaps=rd:call(zigbee_devices,all_raw,[],5000),
-    io:format("AllMaps ~p~n",[{AllMaps,?MODULE,?FUNCTION_NAME}]),
+    Temp=balcony_pid:get_temp(),
+    io:format("Temp ~p~n",[{Temp,?MODULE,?FUNCTION_NAME}]),
+    IsReachable=balcony_pid:is_reachable(),
+    io:format("IsReachable ~p~n",[{IsReachable,?MODULE,?FUNCTION_NAME}]),
+
+    ReachableStatus=balcony_pid:reachable_status(),
+    io:format("ReachableStatus ~p~n",[{ReachableStatus,?MODULE,?FUNCTION_NAME}]),
+
+%  HeatherBalcony=rd:call(zigbee_devices,call,[?HeatherBalcony,is_reachable,[]],5000),
+%    io:format("HeatherBalcony ~p~n",[{HeatherBalcony,?MODULE,?FUNCTION_NAME}]),
+%    HeatherDoor=rd:call(zigbee_devices,call,[?HeatherDoor,is_reachable,[]],5000),
+%    io:format("HeatherDoor ~p~n",[{HeatherDoor,?MODULE,?FUNCTION_NAME}]),
     
+    
+
     ok.
 
 
@@ -67,7 +82,7 @@ setup()->
     NodesC201=rpc:call(?ControlC201,erlang,nodes,[],5000),
  %   io:format("NodesC201 ~p~n",[{NodesC201,?MODULE,?FUNCTION_NAME}]),
     [net_adm:ping(N)||N<-NodesC201],
-    io:format("nodes ~p~n",[{nodes(),?MODULE,?FUNCTION_NAME}]),
+ %   io:format("nodes ~p~n",[{nodes(),?MODULE,?FUNCTION_NAME}]),
     
     file:del_dir_r(?MainLogDir),
     ok=application:start(log),

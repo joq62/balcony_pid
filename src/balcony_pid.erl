@@ -52,10 +52,11 @@
 %	 loop_temp/1
 	]).
 
-%% Oam handling API
+%% Debug test API
 
 -export([
-%	 all/0,
+	 is_reachable/0,
+	 reachable_status/0
 %	 all_nodes/0,
 %	 all_providers/0,
 %	 where_is/1,
@@ -108,6 +109,38 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec is_reachable() -> IsReachable :: boolean | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
+%%  Deployments: [Deployment]
+
+is_reachable()  ->
+    gen_server:call(?SERVER,{is_reachable},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec reachable_status() -> {ok,[{Name :: string(), IsReachable :: boolean}]} | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
+%%  Deployments: [Deployment]
+
+reachable_status()  ->
+    gen_server:call(?SERVER,{reachable_status},infinity).
+
 %%--------------------------------------------------------------------
 %% @doc
 %% This function is an user interface to be complementary to automated
@@ -293,10 +326,25 @@ init([]) ->
 
 
 handle_call({get_temp}, _From, State) ->
-    Reply=glurk,
-						 
+    Reply=rd:call(zigbee_devices,call,[?TempSensor,temp,[]],5000),
     {reply, Reply, State};
 
+handle_call({is_reachable}, _From, State) ->
+    HB=rd:call(zigbee_devices,call,[?HeatherBalcony,is_reachable,[]],5000),
+    HD=rd:call(zigbee_devices,call,[?HeatherDoor,is_reachable,[]],5000),
+    Reply=case {HB,HD} of
+	      {true,true}->
+		  true;
+	      _->
+		  false
+	  end,
+    {reply, Reply, State};
+
+handle_call({reachable_status}, _From, State) ->
+    HB=rd:call(zigbee_devices,call,[?HeatherBalcony,is_reachable,[]],5000),
+    HD=rd:call(zigbee_devices,call,[?HeatherDoor,is_reachable,[]],5000),
+    Reply=[{HB,?HeatherBalcony},{HD,?HeatherDoor}],
+    {reply, Reply, State};
 
 handle_call({ping}, _From, State) ->
     Reply = pong,
