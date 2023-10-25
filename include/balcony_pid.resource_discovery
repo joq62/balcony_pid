@@ -1,0 +1,5 @@
+%% I provide following Resources 
+-define(LocalResourceTuples,[{balcony_pid,{balcony_pid,node()}}]).
+
+%% I want following resource types
+-define(TargetTypes,[control,zigbee_provider,zigbee_devices,log,etcd]). 
