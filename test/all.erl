@@ -19,7 +19,7 @@
 -include("include/balcony_pid.hrl").
 
 -define(ControlC201,control_a@c201).
--define(TestSetpoint,20).
+-define(TestSetpoint,21).
 
 -define(MainLogDir,"logs").
 -define(LocalLogDir,"to_be_changed.logs").
@@ -35,8 +35,10 @@
 start()->
    
     ok=setup(),
-    ok=test_1(),
-    ok=test_2(), 
+   
+    ok=test_balcony(),
+%    ok=test_1(),
+%    ok=test_2(), 
     io:format("Test OK !!! ~p~n",[?MODULE]),
     timer:sleep(2000),
 %    init:stop(),
@@ -45,6 +47,35 @@ start()->
 
 
 %
+%% --------------------------------------------------------------------
+%% Function: available_hosts()
+%% Description: Based on hosts.config file checks which hosts are avaible
+%% Returns: List({HostId,Ip,SshPort,Uid,Pwd}
+%% --------------------------------------------------------------------
+test_balcony()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+  
+    ok=balcony_pid:new_session(?TestSetpoint),
+    {error,["Session allready started",balcony_pid,_]}=balcony_pid:new_session(?TestSetpoint),
+    Temp=balcony_pid:get_temp(),
+    Error=balcony_pid:get_error(),
+    Error=?TestSetpoint-Temp,
+    io:format("Error ~p~n",[{Error,?MODULE,?FUNCTION_NAME}]),
+    loop(),
+
+    ok.
+
+loop()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+
+    Temp=balcony_pid:get_temp(),
+  io:format("Temp ~p~n",[{Temp,?MODULE,?FUNCTION_NAME}]),  
+    timer:sleep(10*1000),
+  
+    loop().
+    
+
+
 %% --------------------------------------------------------------------
 %% Function: available_hosts()
 %% Description: Based on hosts.config file checks which hosts are avaible

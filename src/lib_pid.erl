@@ -34,10 +34,7 @@
 %% @end
 %%--------------------------------------------------------------------
 control_loop(SetPoint,_PreviousErrorXXX,TotalError)->
- %   NewError=get_error(SetPoint),
-    NewError=3,
-    PreviousError=3,
-
+    NewError=get_error(SetPoint),
     T1=TotalError+NewError,
     NewTotalError=if 
 		      T1>?MaxControl->
@@ -49,7 +46,8 @@ control_loop(SetPoint,_PreviousErrorXXX,TotalError)->
 		  end,
     P= ?Kp*NewError,
     I= (?Ki*?PwmWidth)*NewTotalError,
-    D= (?Kd/?PwmWidth)*NewError,
+ %   D= (?Kd/?PwmWidth)*NewError,
+    D=?Kd*NewError,
  
     PidValue=P+I+D+?BaseOffset,
     ActualWidth=trunc(PidValue),

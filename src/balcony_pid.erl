@@ -260,7 +260,6 @@ init([]) ->
     [rd:add_target_resource_type(TargetType)||TargetType<-?TargetTypes],
     rd:trade_resources(),
       
-   
     ?LOG_NOTICE("Server started ",[]),
        
     {ok, #state{
@@ -296,7 +295,6 @@ init([]) ->
 
 handle_call({new_session,SetPoint}, _From, State) when State#state.session=:=not_started->
     spawn(fun()->lib_pid:control_loop(SetPoint,State#state.previous_error,State#state.integral) end),
-
     Reply=ok,
     NewState=State#state{session=started,setpoint=SetPoint},
     {reply, Reply, NewState};
