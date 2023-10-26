@@ -43,6 +43,8 @@
 %% Application handling API
 
 -export([
+	 new_session/1,
+	 control_loop/2,
 %	 control_loop/2,
 %	 on/0,
 %	 off/0,
@@ -56,7 +58,8 @@
 
 -export([
 	 is_reachable/0,
-	 reachable_status/0
+	 reachable_status/0,
+	 get_error/0
 %	 all_nodes/0,
 %	 all_providers/0,
 %	 where_is/1,
@@ -92,8 +95,11 @@
 
 %% Record and Data
 -record(state,{
+	       logged_values,
+	       session,
 	       pwm_width,
 	       sample_interval,
+	       delta_time,
 	       setpoint,
 	       previous_error,
 	       integral,
@@ -109,6 +115,34 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec new_session(SetPoint :: integer()) -> ok | {error,already_started} | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% 
+new_session(SetPoint)  ->
+    gen_server:call(?SERVER,{new_session,SetPoint},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec get_error() -> Error :: float() | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% 
+get_error()  ->
+    gen_server:call(?SERVER,{get_error},infinity).
+
 %%--------------------------------------------------------------------
 %% @doc
 %% This function is an user interface to be complementary to automated
@@ -159,90 +193,15 @@ get_temp()  ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% This function is an user interface to be complementary to automated
-%% stop and unload a provider at this host.
-%% In v1.0.0 the deployment will not be persistant   
-%% @end
-%%--------------------------------------------------------------------
--spec stop_unload(DeploymentId :: integer()) -> ok | 
-	  {error, Error :: term()}.
-%%  Tabels or State
-%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
-%%  Deployments: [Deployment]
-
-stop_unload(DeploymentId) ->
-    gen_server:call(?SERVER,{stop_unload,DeploymentId},infinity).
-%--------------------------------------------------------------------
-%% @doc
-%% reload(DeploymentId) will stop_unload and load and start the provider   
-%% @end
-%%--------------------------------------------------------------------
--spec reload(DeploymentId :: integer(),ProviderSpec :: string()) -> {ok,NewDeploymentId :: integer()} | 
-	  {error, Error :: term()}.
-%%  Tabels or State
-%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
-%%  Deployments: [Deployment]
-
-reload(DeploymentId,ProviderSpec) ->
-    gen_server:call(?SERVER,{reload,DeploymentId,ProviderSpec},infinity).
-
-%--------------------------------------------------------------------
-%% @doc
-%% get_deployments returns list of deployed providers   
-%% @end
-%%--------------------------------------------------------------------
--spec get_deployments() -> DeploymentList :: term() | 
-	  {error, Error :: term()}.
-%%  Tabels or State
-%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
-%%  Deployments: [Deployment]
-
-get_deployments() ->
-    gen_server:call(?SERVER,{get_deployments},infinity).
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Create provider directory and starts the slave node 
-%% @end
-%%--------------------------------------------------------------------
--spec create_provider(Deployment :: string()) -> ok | 
-	  {error, Error :: [already_started]} | 
-	  {error, Error :: term()}.
-%%  Tabels or State
-%%  deployments: {Deployment,DeploymentTime,State(created,loaded, started, stopped, unloaded,deleted,error)
-
-create_provider(Deployment) ->
-    gen_server:call(?SERVER,{create_provider,Deployment},infinity).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Delete provider directory and stop the slave node
-%% @end
-%%--------------------------------------------------------------------
--spec delete_provider(Deployment :: string()) -> ok | 
-	  {error, Error :: [already_started]} |
-	  {error, Error :: term()}.
-%%  Tabels or State
-%%  deployments: {Deployment,DeploymentTime,State(created,loaded, started, stopped, unloaded,deleted,error)
-
-delete_provider(Deployment) ->
-    gen_server:call(?SERVER,{delete_provider,Deployment},infinity).
-
-%%--------------------------------------------------------------------
-%% @doc
 %% Load the provider application on to the created slave node 
 %% @end
 %%--------------------------------------------------------------------
--spec load_provider(Deployment :: string()) -> ok | 
-	  {error, Error :: [already_started]} |
-	  {error, Error :: [node_not_started]} |
-	  {error, Error :: term()}.
+-spec control_loop(NewError :: float(),NewIntegral :: float()) -> ok.
 %%  Tabels or State
 %%  deployments: {Deployment,DeploymentTime,State(created,loaded, started, stopped, unloaded,deleted,error)
 
-load_provider(Deployment) ->
-    gen_server:call(?SERVER,{load_provider,Deployment},infinity).
+control_loop(NewError,NewIntegral) ->
+    gen_server:cast(?SERVER,{control_loop,NewError,NewIntegral}).
 
 
 %%--------------------------------------------------------------------
@@ -303,9 +262,20 @@ init([]) ->
       
    
     ?LOG_NOTICE("Server started ",[]),
-    
- 
-    {ok, #state{}}.
+       
+    {ok, #state{
+	    session=not_started,
+	    logged_values=[],
+	    pwm_width=?PwmWidth,
+	    sample_interval=?SampleInterval,
+	    delta_time=?DeltaTime,
+	    setpoint=not_set,
+	    previous_error=0,
+	    integral=0,
+	    kp=?Kp,
+	    ki=?Ki,
+	    kd=?Kd
+	    }}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -324,34 +294,46 @@ init([]) ->
 	  {stop, Reason :: term(), NewState :: term()}.
 
 
+handle_call({new_session,SetPoint}, _From, State) when State#state.session=:=not_started->
+    spawn(fun()->lib_pid:control_loop(SetPoint,State#state.previous_error,State#state.integral) end),
+
+    Reply=ok,
+    NewState=State#state{session=started,setpoint=SetPoint},
+    {reply, Reply, NewState};
+
+handle_call({new_session,SetPoint}, _From, State) when State#state.session=:=started->
+    Reply={error,["Session allready started",?MODULE,?LINE]},
+    {reply, Reply, State};
+
+
+handle_call({get_error}, _From, State) when State#state.session=:=started->
+    Reply=lib_pid:get_error(State#state.setpoint),
+    {reply, Reply, State};
+
+handle_call({get_error}, _From, State) when State#state.session=:=not_started->
+    Reply={error,["Session not started",?MODULE,?LINE]},
+    {reply, Reply, State};
+
+
 
 handle_call({get_temp}, _From, State) ->
-    Reply=rd:call(zigbee_devices,call,[?TempSensor,temp,[]],5000),
+    Reply=lib_pid:get_temp(),
     {reply, Reply, State};
 
 handle_call({is_reachable}, _From, State) ->
-    HB=rd:call(zigbee_devices,call,[?HeatherBalcony,is_reachable,[]],5000),
-    HD=rd:call(zigbee_devices,call,[?HeatherDoor,is_reachable,[]],5000),
-    Reply=case {HB,HD} of
-	      {true,true}->
-		  true;
-	      _->
-		  false
-	  end,
+    Reply=lib_pid:is_reachable(),
     {reply, Reply, State};
 
 handle_call({reachable_status}, _From, State) ->
-    HB=rd:call(zigbee_devices,call,[?HeatherBalcony,is_reachable,[]],5000),
-    HD=rd:call(zigbee_devices,call,[?HeatherDoor,is_reachable,[]],5000),
-    Reply=[{HB,?HeatherBalcony},{HD,?HeatherDoor}],
+    Reply=lib_pid:reachable_status(),
     {reply, Reply, State};
 
 handle_call({ping}, _From, State) ->
     Reply = pong,
     {reply, Reply, State};
 
-handle_call(_Request, _From, State) ->
-    Reply = ok,
+handle_call(Request, _From, State) ->
+    Reply = {error,["Unmatched signal ",Request,?MODULE,?LINE]},
     {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
@@ -365,7 +347,16 @@ handle_call(_Request, _From, State) ->
 	  {noreply, NewState :: term(), Timeout :: timeout()} |
 	  {noreply, NewState :: term(), hibernate} |
 	  {stop, Reason :: term(), NewState :: term()}.
-handle_cast(_Request, State) ->
+
+
+
+handle_cast({control_loop,NewPreviousError,NewIntegral}, State) ->
+    spawn(fun()->lib_pid:control_loop(State#state.setpoint,NewIntegral,NewIntegral) end),
+    NewState=State#state{previous_error=NewPreviousError,integral=NewIntegral},
+    {noreply, NewState};
+
+handle_cast(Request, State) ->
+    io:format("unmatched match~p~n",[{Request,?MODULE,?LINE}]), 
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -379,7 +370,9 @@ handle_cast(_Request, State) ->
 	  {noreply, NewState :: term(), Timeout :: timeout()} |
 	  {noreply, NewState :: term(), hibernate} |
 	  {stop, Reason :: normal | term(), NewState :: term()}.
-handle_info(_Info, State) ->
+
+handle_info(Info, State) ->
+      io:format("unmatched match~p~n",[{Info,?MODULE,?LINE}]), 
     {noreply, State}.
 
 %%--------------------------------------------------------------------
