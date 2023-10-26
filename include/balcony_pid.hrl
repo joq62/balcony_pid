@@ -3,11 +3,13 @@
 -define(SampleInterval,60*1000).
 %-define(DeltaTime,?SampleInterval).
 %-define(PwmWidth,2*60).
--define(PwmWidth,10).  %% in seconds
+-define(PwmWidth,30).  %% in seconds
 -define(DeltaTime,?PwmWidth).
--define(Kp,0.1*?PwmWidth).
--define(Ki,0.7).
--define(Kd,0.05*?PwmWidth).
+-define(Kp,0.1).
+-define(Ki,0.01).
+-define(Kd,30).
+-define(MaxControl,0.5*?PwmWidth).
+-define(MinControl,-?MaxControl).
 
 -define(TempSensor,"weather_1").
 -define(HeatherBalcony,"switch_inglasade_heather_balcony").

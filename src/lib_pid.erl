@@ -33,23 +33,33 @@
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-control_loop(SetPoint,_PreviousErrorXXX,Integral)->
+control_loop(SetPoint,_PreviousErrorXXX,TotalError)->
  %   NewError=get_error(SetPoint),
     NewError=3,
     PreviousError=3,
 
-    NewProportional= 1*new_proportional_value(?Kp,NewError),
-    NewIntegral= 1*new_integral_value(Integral,?Ki,NewError,?DeltaTime),
-    NewDerivate= 1*new_derivate_value(?Kd,PreviousError,NewError,?DeltaTime),
+    T1=TotalError+NewError,
+    NewTotalError=if 
+		      T1>?MaxControl->
+			  ?MaxControl;
+		      T1<?MinControl->
+			  ?MinControl;
+		      true->
+			  T1
+		  end,
+    P= ?Kp*NewError,
+    I= (?Ki*?PwmWidth)*NewTotalError,
+    D= (?Kd/?PwmWidth)*NewError,
  
-    PidValue=NewProportional+NewDerivate+NewIntegral+?BaseOffset,
+    PidValue=P+I+D+?BaseOffset,
     ActualWidth=trunc(PidValue),
   %  ActualWidth=trunc(PidValue+?BaseOffset),
  
     io:format("NewError ~p~n",[{NewError,?MODULE,?LINE}]),
-    io:format("NewProportional ~p~n",[{NewProportional,?MODULE,?LINE}]),
-    io:format("NewIntegral ~p~n",[{NewIntegral,?MODULE,?LINE}]),
-    io:format("NewDerivate ~p~n",[{NewDerivate,?MODULE,?LINE}]),
+    io:format("T1 ~p~n",[{T1,?MODULE,?LINE}]),
+    io:format("P ~p~n",[{P,?MODULE,?LINE}]),
+    io:format("I ~p~n",[{I,?MODULE,?LINE}]),
+    io:format("D ~p~n",[{D,?MODULE,?LINE}]),
     io:format("PidValue ~p~n",[{PidValue,?MODULE,?LINE}]),
     io:format("ActualWidth ~p~n",[{ActualWidth,?MODULE,?LINE}]),
  
@@ -70,7 +80,7 @@ control_loop(SetPoint,_PreviousErrorXXX,Integral)->
 	    rd:call(zigbee_devices,call,[?HeatherDoor,turn_off,[]],5000),
 	    timer:sleep((?PwmWidth-ActualWidth)*1000)
     end,
-    rpc:cast(node(),balcony_pid,control_loop,[NewError,NewIntegral]).
+    rpc:cast(node(),balcony_pid,control_loop,[NewError,NewTotalError]).
 
 
 %%--------------------------------------------------------------------
@@ -94,8 +104,7 @@ new_integral_value(IntegralValue,Ki,NewError,DeltaTime)->
 %% @end
 %%--------------------------------------------------------------------
 new_derivate_value(Kd,PreviousError,NewError,DeltaTime)->
-    Kd*((PreviousError-NewError)).
-  %  Kd*((PreviousError-NewError)/DeltaTime).
+   (PreviousError-NewError)/DeltaTime.
 %%--------------------------------------------------------------------
 %% @doc
 %% @spec

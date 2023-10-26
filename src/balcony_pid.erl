@@ -350,9 +350,9 @@ handle_call(Request, _From, State) ->
 
 
 
-handle_cast({control_loop,NewPreviousError,NewIntegral}, State) ->
-    spawn(fun()->lib_pid:control_loop(State#state.setpoint,NewIntegral,NewIntegral) end),
-    NewState=State#state{previous_error=NewPreviousError,integral=NewIntegral},
+handle_cast({control_loop,NewError,NewTotalError}, State) ->
+    spawn(fun()->lib_pid:control_loop(State#state.setpoint,NewError,NewTotalError) end),
+    NewState=State#state{previous_error=NewError,integral=NewTotalError},
     {noreply, NewState};
 
 handle_cast(Request, State) ->
