@@ -1,9 +1,11 @@
--define(SetPoint,20).
+-define(SetPoint,21).
 
+-define(MaxSessionTime,1000*60*60*6). %% In seconds
+%-define(MaxSessionTime,60*4). %% In seconds
 -define(SampleInterval,60*1000).
 %-define(DeltaTime,?SampleInterval).
 %-define(PwmWidth,2*60).
--define(PwmWidth,60).  %% in seconds
+-define(PwmWidth,40).  %% in seconds
 -define(DeltaTime,?PwmWidth).
 -define(Kp,0.1).
 -define(Ki,0.002).

@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 26 Oct 2023 by c50 <joq62@c50>
 %%%-------------------------------------------------------------------
--module(lib_pid).
+-module(lib_pid_v1).
 
 
 -include("balcony_pid.hrl").
@@ -15,11 +15,16 @@
 
 %% API
 -export([
-	 calc_errors/1,
-	 calc_pid/1,
+	 calc_errors/2,
+	 calc_pid/2,
 	 activate/1,
-	 stop_session/0,
 	 
+	 control_loop/3,
+	 new_proportional_value/2,
+	 new_integral_value/4,
+	 new_derivate_value/4,
+	 
+	 get_error/1,
 	 get_temp/0,
 	 is_reachable/0,
 	 reachable_status/0
@@ -29,29 +34,18 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
-
 %%--------------------------------------------------------------------
 %% @doc
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-stop_session()->
-    rd:call(zigbee_devices,call,[?HeatherBalcony,turn_off,[]],5000),
-    rd:call(zigbee_devices,call,[?HeatherDoor,turn_off,[]],5000),
-    ok.
-    
-%%--------------------------------------------------------------------
-%% @doc
-%% @spec
-%% @end
-%%--------------------------------------------------------------------
-calc_errors(State)->
+calc_errors(SetPoint,TotalError)->
     Result=case rd:call(zigbee_devices,call,[?TempSensor,temp,[]],5000) of
 	       {error,Reason}->
-		   {error,[Reason,?MODULE,?LINE],State};
+		   {error,[Reason,?MODULE,?LINE]};
 	       ActualTemp->
-		   NewError=State#state.setpoint-ActualTemp,
-		   T1=State#state.total_error+NewError,
+		   NewError=SetPoint-ActualTemp,
+		   T1=TotalError+NewError,
 		   NewTotalError=if 
 				     T1>?MaxControl->
 					 ?MaxControl;
@@ -60,29 +54,25 @@ calc_errors(State)->
 				     true->
 					 T1
 				 end,
-		   {ok,State#state{
-			 actual_temp=ActualTemp,
-			 error=NewError,
-			 total_error=NewTotalError}}
+		   {ok,[{actual_temp,ActualTemp},
+			{new_error,NewError},
+			{new_total_error,NewTotalError}]}
 	   end,
-    rpc:cast(node(),balcony_pid,calc_errors_result,[Result]).
+    Result.
 
 %%--------------------------------------------------------------------
 %% @doc
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-calc_pid(State)->
-    P= State#state.kp*State#state.error,
-    I= (State#state.ki*State#state.pwm_width)*State#state.total_error,
-    D= State#state.kd*State#state.error,
-    PidValue=P+I+D+State#state.base_offset,
+calc_pid(NewError,NewTotalError)->
+    P= ?Kp*NewError,
+    I= (?Ki*?PwmWidth)*NewTotalError,
+    D= (?Kd/?PwmWidth)*NewError,
+    D=?Kd*NewError,
+    PidValue=P+I+D+?BaseOffset,
     ActualWidth=trunc(PidValue),
-    Result={ok,State#state{
-		 p=P,i=I,d=D,
-		 pid_value=PidValue,
-		 actual_width=ActualWidth}},
-    rpc:cast(node(),balcony_pid,calc_pid_result,[Result]).
+    {ok,[{p,P},{i,I},{d,D},{pidValue,PidValue},{actual_width,ActualWidth}]}.
 
 
 %%--------------------------------------------------------------------
@@ -90,34 +80,25 @@ calc_pid(State)->
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-activate(State)->
-    ActualWidth=State#state.actual_width,
-    PwmWidth=State#state.pwm_width,
+activate(ActualWidth)->
     if
-	ActualWidth>PwmWidth->
+	ActualWidth>?PwmWidth->
 	    rd:call(zigbee_devices,call,[?HeatherBalcony,turn_on,[]],5000),
 	    rd:call(zigbee_devices,call,[?HeatherDoor,turn_on,[]],5000),
-	    timer:sleep(PwmWidth*1000);
+	    timer:sleep(?PwmWidth*1000);
 	ActualWidth < 1 ->
 	    rd:call(zigbee_devices,call,[?HeatherBalcony,turn_off,[]],5000),
 	    rd:call(zigbee_devices,call,[?HeatherDoor,turn_off,[]],5000),
-	    timer:sleep(PwmWidth*1000);
+	    timer:sleep(?PwmWidth*1000);
 	true ->
 	    rd:call(zigbee_devices,call,[?HeatherBalcony,turn_on,[]],5000),
 	    rd:call(zigbee_devices,call,[?HeatherDoor,turn_on,[]],5000),
 	    timer:sleep(ActualWidth*1000),
 	    rd:call(zigbee_devices,call,[?HeatherBalcony,turn_off,[]],5000),
 	    rd:call(zigbee_devices,call,[?HeatherDoor,turn_off,[]],5000),
-	    timer:sleep((PwmWidth-ActualWidth)*1000)
+	    timer:sleep((?PwmWidth-ActualWidth)*1000)
     end,
-    NewElapsedTime=State#state.session_elapsed_time+PwmWidth,
-    if 
-	NewElapsedTime>State#state.max_session_time ->
-	    rpc:cast(node(),balcony_pid,stop_session,[]);
-	true->
-	    NewState=State#state{session_elapsed_time=NewElapsedTime},
-	    rpc:cast(node(),balcony_pid,activate_result,[{ok,NewState}])
-    end.
+    ok.
 
 %%--------------------------------------------------------------------
 %% @doc

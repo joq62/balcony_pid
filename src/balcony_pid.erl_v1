@@ -47,19 +47,23 @@
 %% Application handling API
 
 -export([
-	 new_session/0,
-	 stop_session/0,
-
-	 pid_info/0,
-	 calc_errors_result/1,	 
-	 calc_pid_result/1,
-	 activate_result/1
+	 new_session/1,
+	 control_loop/2,
+%	 control_loop/2,
+%	 on/0,
+%	 off/0,
+%	 calibrate/1,
+	 get_temp/0
+%	 pwm/2,
+%	 loop_temp/1
 	]).
 
 %% Debug test API
 
 -export([
-
+	 is_reachable/0,
+	 reachable_status/0,
+	 get_error/0
 %	 all_nodes/0,
 %	 all_providers/0,
 %	 where_is/1,
@@ -69,6 +73,17 @@
 
 
 %% Debug API
+-export([
+%	 create_worker/1,
+%	 delete_worker/1,
+%	 load_provider/1,
+%	 start/1,
+%	 stop/1,
+%	 unload/1
+	
+	 
+	]).
+
 
 -export([start/0,
 	 ping/0]).
@@ -115,17 +130,6 @@ new_session(SetPoint,SessionTime)  ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Gets pid controllers internal data. Debug purpose
-%% 
-%% @end
-%%--------------------------------------------------------------------
--spec pid_info() -> State :: term() | {error, Error :: term()}.
-pid_info()->
-    gen_server:call(?SERVER,{pid_info},infinity).
-
-
-%%--------------------------------------------------------------------
-%% @doc
 %% Stops a ongoing session. The PID controller deactivates and turns off
 %% the heathers. Same procedure if no session is ongoing    
 %% @end
@@ -133,23 +137,144 @@ pid_info()->
 -spec stop_session() -> ok.
 stop_session()  ->
     gen_server:cast(?SERVER,{stop_session}).
+  
+%%--------------------------------------------------------------------
+%% @doc
+%% Changes the setpoint temperature during an ongoing session.
+%% If no_session no-action. Checks if value is correct type and
+%% and in range 15-25 degrees Celsius   
+%% @end
+%%--------------------------------------------------------------------
+-spec set_wanted_temp(Temp :: integer()) -> ok | {error, Error :: term()}.
+set_wanted_temp(Temp) ->
+    gen_server:call(?SERVER,{set_wanted_temp,Temp},infinity).
+%%--------------------------------------------------------------------
+%% @doc
+%% Gets the current temperature   
+%% @end
+%%--------------------------------------------------------------------
+-spec get_temp() -> Temp :: float() | {error, Error :: term()}.
+get_temp()->
+    gen_server:call(?SERVER,{get_temp},infinity).
 
 %%--------------------------------------------------------------------
 %% @doc
-%%
+%% Gets time left of the ongoing session SessionTime-ElapsedTime
 %% @end
 %%--------------------------------------------------------------------
--spec calc_errors_result({Result :: atom(),NewState :: term()}) -> ok.
-calc_errors_result({Result,NewState})  ->
-    gen_server:cast(?SERVER,{calc_errors_result,{Result,NewState}}).
+-spec get_time_left() -> {Hour :: integer(),Min :: integer() | {error, Error :: term()}.
+get_time_left()->
+    gen_server:call(?SERVER,{get_time_left},infinity).
 
--spec calc_pid_result({Result :: atom(),NewState :: term()}) -> ok.
-calc_pid_result({Result,NewState})  ->
-    gen_server:cast(?SERVER,{calc_pid_result,{Result,NewState}}).
+%%--------------------------------------------------------------------
+%% @doc
+%% Gets pid controllers internal data. Debug purpose
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec pid_info() -> State :: term() | {error, Error :: term()}.
+pid_info()->
+    gen_server:call(?SERVER,{get_pid_info},infinity).
 
--spec activate_result({Result :: atom(),NewState :: term()}) -> ok.
-activate_result({Result,NewState})  ->
-    gen_server:cast(?SERVER,{activate_result,{Result,NewState}}).
+
+% get_pid_info() -> [{'P',P},{'I',I},{'D',D}] 
+    
+% get_time_left() -> SessionTime-ElapsedTime
+
+
+-spec reachable_status() -> {ok,[{Name :: string(), IsReachable :: boolean}]} | 
+	  {error, Error :: term()}.
+reachable_status()  ->
+    gen_server:call(?SERVER,{reachable_status},infinity).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec new_session(SetPoint :: integer()) -> ok | {error,already_started} | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% 
+new_session(SetPoint)  ->
+    gen_server:call(?SERVER,{new_session,SetPoint},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec get_error() -> Error :: float() | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% 
+get_error()  ->
+    gen_server:call(?SERVER,{get_error},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec is_reachable() -> IsReachable :: boolean | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
+%%  Deployments: [Deployment]
+
+is_reachable()  ->
+    gen_server:call(?SERVER,{is_reachable},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec reachable_status() -> {ok,[{Name :: string(), IsReachable :: boolean}]} | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
+%%  Deployments: [Deployment]
+
+reachable_status()  ->
+    gen_server:call(?SERVER,{reachable_status},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% This function is an user interface to be complementary to automated
+%% load and start a provider at this host.
+%% In v1.0.0 the deployment will not be persistant   
+%% @end
+%%--------------------------------------------------------------------
+-spec get_temp() -> {ok,Temp :: float()} | 
+	  {error, Error :: term()}.
+%%  Tabels or State
+%% Deployment: {DeploymentId,ProviderSpec,date(),time()}
+%%  Deployments: [Deployment]
+
+get_temp()  ->
+    gen_server:call(?SERVER,{get_temp},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Load the provider application on to the created slave node 
+%% @end
+%%--------------------------------------------------------------------
+-spec control_loop(NewError :: float(),NewIntegral :: float()) -> ok.
+%%  Tabels or State
+%%  deployments: {Deployment,DeploymentTime,State(created,loaded, started, stopped, unloaded,deleted,error)
+
+control_loop(NewError,NewIntegral) ->
+    gen_server:cast(?SERVER,{control_loop,NewError,NewIntegral}).
 
 
 %%--------------------------------------------------------------------
@@ -207,7 +332,6 @@ init([]) ->
     [rd:add_local_resource(ResourceType,Resource)||{ResourceType,Resource}<-?LocalResourceTuples],
     [rd:add_target_resource_type(TargetType)||TargetType<-?TargetTypes],
     rd:trade_resources(),
-    timer:sleep(5000),
       
     ?LOG_NOTICE("Server started ",[]),
     case lib_pid:get_temp() of
@@ -240,9 +364,8 @@ init([]) ->
 	    p=0,
 	    i=0,
 	    d=0
-	    %% debug
-	    
 	   
+	    logged_values=[],
 	   },Timeout}.
 
 %%--------------------------------------------------------------------
@@ -268,8 +391,31 @@ handle_call({new_session}, _From, State)->
     Reply=ok,
     {reply, Reply, NewState};
 
-handle_call({pid_info}, _From, State)->
-    Reply=State,
+handle_call({new_session,SetPoint}, _From, State) when State#state.session=:=started->
+    Reply={error,["Session allready started",?MODULE,?LINE]},
+    {reply, Reply, State};
+
+
+handle_call({get_error}, _From, State) when State#state.session=:=started->
+    Reply=lib_pid:get_error(State#state.setpoint),
+    {reply, Reply, State};
+
+handle_call({get_error}, _From, State) when State#state.session=:=not_started->
+    Reply={error,["Session not started",?MODULE,?LINE]},
+    {reply, Reply, State};
+
+
+
+handle_call({get_temp}, _From, State) ->
+    Reply=lib_pid:get_temp(),
+    {reply, Reply, State};
+
+handle_call({is_reachable}, _From, State) ->
+    Reply=lib_pid:is_reachable(),
+    {reply, Reply, State};
+
+handle_call({reachable_status}, _From, State) ->
+    Reply=lib_pid:reachable_status(),
     {reply, Reply, State};
 
 handle_call({ping}, _From, State) ->
@@ -299,19 +445,19 @@ handle_cast({stop_session}, State)->
 			 session_elapsed_time=0},			 
     {noreply, NewState};
 
-handle_cast({calc_errors_result,{error,_Reason,NewState}}, State) when State#state.in_session =:=true ->
+handle_cast({calc_errors_result,{error,Reason,NewState}}, _State) ->
     spawn(fun()->lib_pid:activate(NewState) end),
     {noreply, NewState};
 
-handle_cast({calc_errors_result,{ok,NewState}}, State) when State#state.in_session =:=true ->
+handle_cast({calc_errors_result,{ok,NewState}}, _State) ->
     spawn(fun()->lib_pid:calc_pid(NewState) end),
     {noreply, NewState};
 
-handle_cast({calc_pid_result,{ok,NewState}}, State) when State#state.in_session =:=true ->
+handle_cast({calc_pid_result,{ok,NewState}}, _State) ->
     spawn(fun()->lib_pid:activate(NewState) end),
     {noreply, NewState};
 
-handle_cast({activate_result,{ok,NewState}}, State) when State#state.in_session =:=true ->
+handle_cast({activate_result,{ok,NewState}}, _State) ->
     spawn(fun()->lib_pid:calc_errors(NewState) end),
     {noreply, NewState};
 
@@ -333,7 +479,7 @@ handle_cast(Request, State) ->
 	  {stop, Reason :: normal | term(), NewState :: term()}.
 
 handle_info(timeout, State) ->
-    spawn(fun()->lib_pid:calc_errors(State) end),
+    spawn(fun()->calc_errors(State) end),
     {noreply, State};
 
 handle_info(Info, State) ->
