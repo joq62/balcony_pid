@@ -50,7 +50,7 @@ start()->
 test_balcony()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
   
-  
+    ok=balcony_pid:stop_session(),
     loop(),
 
     ok.
@@ -60,7 +60,8 @@ test_balcony()->
 loop()->
     io:format("******************* ~p~n",[{date(),time()}]),  
     
-    %% test get_temp
+    %% API
+    io:format(" is_available ~p~n",[{balcony_pid:is_available(),?MODULE,?LINE}]),
     io:format(" get_temp ~p~n",[{balcony_pid:get_temp(),?MODULE,?LINE}]),
     io:format(" in_session ~p~n",[{balcony_pid:in_session(),?MODULE,?LINE}]),
 

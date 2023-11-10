@@ -51,6 +51,7 @@
 	 stop_session/0,
 	 get_temp/0,
 	 in_session/0,
+	 is_available/0,
 
 	 pid_info/0,
 	 calc_errors_result/1,	 
@@ -134,6 +135,16 @@ get_temp()->
 -spec in_session() -> InSession :: boolean() | {error, Error :: term()}.
 in_session()->
     gen_server:call(?SERVER,{in_session},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%  Reply if the balcony heathers are reachable  
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec is_available() -> IsAvailable :: boolean() | {error, Error :: term()}.
+is_available()->
+    gen_server:call(?SERVER,{is_available},infinity).
 %%--------------------------------------------------------------------
 %% @doc
 %% Gets pid controllers internal data. Debug purpose
@@ -233,12 +244,24 @@ init([]) ->
     %% Ensure that heaters are turned off during when restarting
     lib_pid:stop_session(),
     
-    case lib_pid:get_temp() of
+    case lib_pid:is_available() of
 	{error,Reason}->
-	    ?LOG_WARNING("Can not read temp ",Reason),
-	    ActualTemp=0;
-	Value->
-	    ActualTemp=Value
+	    ?LOG_WARNING("Error when checking availability",Reason),
+	    ActualTemp=-99999,
+	    IsAvailable=false;
+	false->
+	    ActualTemp=-99999,
+	    IsAvailable=false;
+	true->
+	    case lib_pid:get_temp() of
+		{error,Reason}->
+		    ?LOG_WARNING("Can not read temp ",Reason),
+		    ActualTemp=-99999,
+		    IsAvailable=true;
+		Value->
+		    ActualTemp=Value,
+		    IsAvailable=true
+	    end
     end,
 
     ?LOG_NOTICE("Server started ",[]),
@@ -255,6 +278,7 @@ init([]) ->
 	    %% Runtime 
 	    actual_temp=ActualTemp,
 	    in_session=false,
+	    is_available=IsAvailable,
 	    session_elapsed_time=0,
 	    setpoint=?SetPoint,
 	    error=0,
@@ -297,6 +321,10 @@ handle_call({get_temp}, _From, State)->
     {reply, Reply, State};
 
 handle_call({in_session}, _From, State)->
+    Reply=State#state.in_session,
+    {reply, Reply, State};
+
+handle_call({is_available}, _From, State)->
     Reply=State#state.in_session,
     {reply, Reply, State};
 

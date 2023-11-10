@@ -21,7 +21,7 @@
 	 stop_session/0,
 	 
 	 get_temp/0,
-	 is_reachable/0,
+	 is_available/0,
 	 reachable_status/0
 	 
 	]).
@@ -233,7 +233,7 @@ get_temp()->
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-is_reachable()->    
+is_available()->    
     HB=rd:call(zigbee_devices,call,[?HeatherBalcony,is_reachable,[]],5000),
     HD=rd:call(zigbee_devices,call,[?HeatherDoor,is_reachable,[]],5000),
     case {HB,HD} of

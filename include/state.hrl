@@ -1,3 +1,4 @@
+
 %% Record and Data
 -record(state,{
 	       %% Static data
@@ -10,6 +11,7 @@
 	       %% Runtime 
 	       actual_temp,
 	       in_session,
+	       is_available,
 	       session_elapsed_time,
 	       setpoint,
 	       error,
