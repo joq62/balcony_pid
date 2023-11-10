@@ -49,6 +49,7 @@
 -export([
 	 new_session/0,
 	 stop_session/0,
+	 get_temp/0,
 
 	 pid_info/0,
 	 calc_errors_result/1,	 
@@ -113,6 +114,15 @@ new_session(SetPoint)  ->
 new_session(SetPoint,SessionTime)  ->
     gen_server:call(?SERVER,{new_session,SetPoint,SessionTime},infinity).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Gets the latest measured temperture
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec get_temp() -> Temp :: float() | {error, Error :: term()}.
+get_temp()->
+    gen_server:call(?SERVER,{get_temp},infinity).
 %%--------------------------------------------------------------------
 %% @doc
 %% Gets pid controllers internal data. Debug purpose
@@ -267,6 +277,10 @@ handle_call({new_session}, _From, State)->
     spawn(fun()->lib_pid:calc_errors(NewState) end),
     Reply=ok,
     {reply, Reply, NewState};
+
+handle_call({get_temp}, _From, State)->
+    Reply=State#state.actual_temp,
+    {reply, Reply, State};
 
 handle_call({pid_info}, _From, State)->
     Reply=State,

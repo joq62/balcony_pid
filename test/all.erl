@@ -59,9 +59,11 @@ test_balcony()->
 
 loop()->
     io:format("******************* ~p~n",[{date(),time()}]),  
+    
+    %% test get_temp
+    io:format(" get_temp ~p~n",[{balcony_pid:get_temp(),?MODULE,?LINE}]),
 
     State=balcony_pid:pid_info(),
-    
     io:format("time left~p~n",[State#state.max_session_time-State#state.session_elapsed_time]),
     io:format("in_session  ~p~n",[State#state.in_session]),  
     io:format("actual_temp ~p~n",[State#state.actual_temp]),  
