@@ -247,16 +247,16 @@ init([]) ->
     case lib_pid:is_available() of
 	{error,Reason}->
 	    ?LOG_WARNING("Error when checking availability",Reason),
-	    ActualTemp=-99999,
+	    ActualTemp=-273,
 	    IsAvailable=false;
 	false->
-	    ActualTemp=-99999,
+	    ActualTemp=-273,
 	    IsAvailable=false;
 	true->
 	    case lib_pid:get_temp() of
 		{error,Reason}->
 		    ?LOG_WARNING("Can not read temp ",Reason),
-		    ActualTemp=-99999,
+		    ActualTemp=-273,
 		    IsAvailable=true;
 		Value->
 		    ActualTemp=Value,
@@ -264,7 +264,8 @@ init([]) ->
 	    end
     end,
 
-    ?LOG_NOTICE("Server started ",[]),
+    ?LOG_NOTICE("Server started ",[{is_available,IsAvailable},
+				  {temp,ActualTemp}]),
   
       
     {ok, #state{
@@ -325,7 +326,7 @@ handle_call({in_session}, _From, State)->
     {reply, Reply, State};
 
 handle_call({is_available}, _From, State)->
-    Reply=State#state.in_session,
+    Reply=State#state.is_available,
     {reply, Reply, State};
 
 
