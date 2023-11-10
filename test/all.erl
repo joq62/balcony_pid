@@ -50,7 +50,7 @@ start()->
 test_balcony()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
   
-    ok=balcony_pid:new_session(),
+  
     loop(),
 
     ok.
@@ -62,6 +62,7 @@ loop()->
     
     %% test get_temp
     io:format(" get_temp ~p~n",[{balcony_pid:get_temp(),?MODULE,?LINE}]),
+    io:format(" in_session ~p~n",[{balcony_pid:in_session(),?MODULE,?LINE}]),
 
     State=balcony_pid:pid_info(),
     io:format("time left~p~n",[State#state.max_session_time-State#state.session_elapsed_time]),
@@ -78,7 +79,7 @@ loop()->
 
     io:format("------------------- END -------------------~n"),  
     timer:sleep(10*1000),
-  
+    ok=balcony_pid:new_session(),
     loop().
     
 

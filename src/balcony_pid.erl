@@ -50,6 +50,7 @@
 	 new_session/0,
 	 stop_session/0,
 	 get_temp/0,
+	 in_session/0,
 
 	 pid_info/0,
 	 calc_errors_result/1,	 
@@ -123,6 +124,16 @@ new_session(SetPoint,SessionTime)  ->
 -spec get_temp() -> Temp :: float() | {error, Error :: term()}.
 get_temp()->
     gen_server:call(?SERVER,{get_temp},infinity).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%  Reply if a session is ongoing or not 
+%% 
+%% @end
+%%--------------------------------------------------------------------
+-spec in_session() -> InSession :: boolean() | {error, Error :: term()}.
+in_session()->
+    gen_server:call(?SERVER,{in_session},infinity).
 %%--------------------------------------------------------------------
 %% @doc
 %% Gets pid controllers internal data. Debug purpose
@@ -218,8 +229,10 @@ init([]) ->
     [rd:add_target_resource_type(TargetType)||TargetType<-?TargetTypes],
     rd:trade_resources(),
     timer:sleep(5000),
-      
-    ?LOG_NOTICE("Server started ",[]),
+    
+    %% Ensure that heaters are turned off during when restarting
+    lib_pid:stop_session(),
+    
     case lib_pid:get_temp() of
 	{error,Reason}->
 	    ?LOG_WARNING("Can not read temp ",Reason),
@@ -227,9 +240,10 @@ init([]) ->
 	Value->
 	    ActualTemp=Value
     end,
-    
-    Timeout=0,
-    
+
+    ?LOG_NOTICE("Server started ",[]),
+  
+      
     {ok, #state{
   %% Static data
 	    max_session_time=?MaxSessionTime,
@@ -253,7 +267,7 @@ init([]) ->
 	    %% debug
 	    
 	   
-	   },Timeout}.
+	   }}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -281,6 +295,11 @@ handle_call({new_session}, _From, State)->
 handle_call({get_temp}, _From, State)->
     Reply=State#state.actual_temp,
     {reply, Reply, State};
+
+handle_call({in_session}, _From, State)->
+    Reply=State#state.in_session,
+    {reply, Reply, State};
+
 
 handle_call({pid_info}, _From, State)->
     Reply=State,
@@ -346,12 +365,13 @@ handle_cast(Request, State) ->
 	  {noreply, NewState :: term(), hibernate} |
 	  {stop, Reason :: normal | term(), NewState :: term()}.
 
-handle_info(timeout, State) ->
-    spawn(fun()->lib_pid:calc_errors(State) end),
-    {noreply, State};
+%handle_info(timeout, State) ->
+ %   spawn(fun()->lib_pid:calc_errors(State) end),
+ %   {noreply, State};
 
 handle_info(Info, State) ->
-      io:format("unmatched match~p~n",[{Info,?MODULE,?LINE}]), 
+    ?LOG_WARNING("unmatched match info ",[Info]),
+    io:format("unmatched match~p~n",[{Info,?MODULE,?LINE}]), 
     {noreply, State}.
 
 %%--------------------------------------------------------------------
